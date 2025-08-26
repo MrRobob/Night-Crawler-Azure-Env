@@ -18,12 +18,13 @@ param applicationInsightsDashboardName string = ''
 param applicationInsightsName string = ''
 param appServicePlanName string = ''
 param cosmosAccountName string = ''
-param keyVaultName string = ''
+param keyVaultName string = 'kv-nightcrawlerteam2'
 param logAnalyticsName string = ''
 param resourceGroupName string = ''
 param storageAccountName string = ''
 param webServiceName string = ''
 param apimServiceName string = ''
+param resourceToken string = 'nightcrawlerteam'
 
 @description('Flag to use Azure API Management to mediate the calls between the Web frontend and the backend API')
 param useAPIM bool = false
@@ -34,8 +35,10 @@ param apimSku string = 'Consumption'
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
+// var suffix = 'es ist heiss heute'
+
 var abbrs = loadJsonContent('./abbreviations.json')
-var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
+var token = empty(resourceToken) ? toLower(uniqueString(resourceGroup().id, environmentName)) : toLower(resourceToken)
 var tags = { 'azd-env-name': environmentName }
 var webUri = 'https://${web.outputs.defaultHostname}'
 
@@ -47,7 +50,7 @@ module web 'br/public:avm/res/web/static-site:0.3.0' = {
   name: 'staticweb'
   scope: resourceGroup()
   params: {
-    name: !empty(webServiceName) ? webServiceName : '${abbrs.webStaticSites}web-${resourceToken}'
+    name: !empty(webServiceName) ? webServiceName : '${abbrs.webStaticSites}web-${token}'
     location: location
     provider: 'Custom'
     tags: union(tags, { 'azd-service-name': 'web' })
@@ -59,7 +62,7 @@ module api './app/api-appservice-avm.bicep' = {
   name: 'api'
   scope: resourceGroup()
   params: {
-    name: !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesAppService}api-${resourceToken}'
+    name: !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesAppService}api-${token}'
     location: location
     tags: tags
     kind: 'functionapp'
@@ -117,7 +120,7 @@ module cosmos './app/db-avm.bicep' = {
   name: 'cosmos'
   scope: resourceGroup()
   params: {
-    accountName: !empty(cosmosAccountName) ? cosmosAccountName : '${abbrs.documentDBDatabaseAccounts}${resourceToken}'
+    accountName: !empty(cosmosAccountName) ? cosmosAccountName : '${abbrs.documentDBDatabaseAccounts}${token}'
     location: location
     tags: tags
     keyVaultResourceId: keyVault.outputs.resourceId
@@ -129,7 +132,7 @@ module appServicePlan 'br/public:avm/res/web/serverfarm:0.1.1' = {
   name: 'appserviceplan'
   scope: resourceGroup()
   params: {
-    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
+    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${token}'
     sku: {
       name: 'Y1'
       tier: 'Dynamic'
@@ -146,7 +149,7 @@ module storage 'br/public:avm/res/storage/storage-account:0.8.3' = {
   name: 'storage'
   scope: resourceGroup()
   params: {
-    name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
+    name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${token}'
     allowBlobPublicAccess: true
     dnsEndpointType: 'Standard'
     publicNetworkAccess:'Enabled'
@@ -164,7 +167,7 @@ module keyVault 'br/public:avm/res/key-vault/vault:0.5.1' = {
   name: 'keyvault'
   scope: resourceGroup()
   params: {
-    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
+    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${token}'
     location: location
     tags: tags
     enableRbacAuthorization: false
@@ -180,9 +183,9 @@ module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
   name: 'monitoring'
   scope: resourceGroup()
   params: {
-    applicationInsightsName: !empty(applicationInsightsName) ? applicationInsightsName : '${abbrs.insightsComponents}${resourceToken}'
-    logAnalyticsName: !empty(logAnalyticsName) ? logAnalyticsName : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
-    applicationInsightsDashboardName: !empty(applicationInsightsDashboardName) ? applicationInsightsDashboardName : '${abbrs.portalDashboards}${resourceToken}'
+    applicationInsightsName: !empty(applicationInsightsName) ? applicationInsightsName : '${abbrs.insightsComponents}${token}'
+    logAnalyticsName: !empty(logAnalyticsName) ? logAnalyticsName : '${abbrs.operationalInsightsWorkspaces}${token}'
+    applicationInsightsDashboardName: !empty(applicationInsightsDashboardName) ? applicationInsightsDashboardName : '${abbrs.portalDashboards}${token}'
     location: location
     tags: tags
   }
@@ -193,7 +196,7 @@ module apim 'br/public:avm/res/api-management/service:0.2.0' = if (useAPIM) {
   name: 'apim-deployment'
   scope: resourceGroup()
   params: {
-    name: !empty(apimServiceName) ? apimServiceName : '${abbrs.apiManagementService}${resourceToken}'
+    name: !empty(apimServiceName) ? apimServiceName : '${abbrs.apiManagementService}${token}'
     publisherEmail: 'noreply@microsoft.com'
     publisherName: 'n/a'
     location: location
